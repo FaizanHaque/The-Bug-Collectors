@@ -2,6 +2,55 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { BROAD_GROUPS, speciesInGroup } from "../utils/categories.js";
 
+function YearSlider({ dataMin, dataMax, valueMin, valueMax, onChangeMin, onChangeMax }) {
+  const span = dataMax - dataMin || 1;
+  const pctMin = ((valueMin - dataMin) / span) * 100;
+  const pctMax = ((valueMax - dataMin) / span) * 100;
+
+  const handleMin = (e) => {
+    const v = Math.min(Number(e.target.value), valueMax);
+    onChangeMin(v);
+  };
+  const handleMax = (e) => {
+    const v = Math.max(Number(e.target.value), valueMin);
+    onChangeMax(v);
+  };
+
+  return (
+    <div className="year-slider-block">
+      <div className="year-slider-values">
+        <span>{valueMin}</span>
+        <span>{valueMax}</span>
+      </div>
+      <div className="dual-slider">
+        <div className="dual-slider__track" />
+        <div
+          className="dual-slider__fill"
+          style={{ left: `${pctMin}%`, width: `${pctMax - pctMin}%` }}
+        />
+        <input
+          type="range"
+          className="dual-slider__input"
+          min={dataMin}
+          max={dataMax}
+          value={valueMin}
+          onChange={handleMin}
+          style={{ zIndex: valueMin === valueMax && valueMin === dataMax ? 5 : 3 }}
+        />
+        <input
+          type="range"
+          className="dual-slider__input"
+          min={dataMin}
+          max={dataMax}
+          value={valueMax}
+          onChange={handleMax}
+          style={{ zIndex: 4 }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function FilterPanel({
   allCommonNames,
   draftSelected,
@@ -10,6 +59,11 @@ export default function FilterPanel({
   dirty,
   search,
   setSearch,
+  allYears,
+  filterYearMin,
+  filterYearMax,
+  setFilterYearMin,
+  setFilterYearMax,
   dataset,
   onDatasetChange,
   envOverlay,
@@ -18,6 +72,7 @@ export default function FilterPanel({
   chemPhCount,
 }) {
   const [fishOpen, setFishOpen] = useState(true);
+  const [yearOpen, setYearOpen] = useState(true);
   const [groupsOpen, setGroupsOpen] = useState(true);
   const [speciesOpen, setSpeciesOpen] = useState(true);
   const [waterOpen, setWaterOpen] = useState(true);
@@ -97,88 +152,121 @@ export default function FilterPanel({
       </div>
 
       {isFish && (
-        <div className="accordion-block">
-          <button type="button" className="accordion-trigger" onClick={() => setFishOpen((o) => !o)} aria-expanded={fishOpen}>
-            <span className="accordion-chevron">{fishOpen ? "▾" : "▸"}</span>
-            Species filters
-          </button>
-          {fishOpen && (
-            <div className="accordion-block__body">
-              <div className="accordion-nested">
-                <button
-                  type="button"
-                  className="accordion-trigger accordion-trigger--nested"
-                  onClick={() => setGroupsOpen((o) => !o)}
-                  aria-expanded={groupsOpen}
-                >
-                  <span className="accordion-chevron">{groupsOpen ? "▾" : "▸"}</span>
-                  Broad groups
-                </button>
-                {groupsOpen && (
-                  <div className="broad-groups">
-                    {BROAD_GROUPS.map((g) => {
-                      const count = speciesInGroup(g.id, allCommonNames).length;
-                      if (count === 0) return null;
-                      const allOn = groupAllSelected(g.id);
-                      const some = groupSomeSelected(g.id);
-                      return (
-                        <label key={g.id} className="broad-group-row">
-                          <input
-                            type="checkbox"
-                            checked={allOn}
-                            ref={(el) => {
-                              if (el) el.indeterminate = some;
-                            }}
-                            onChange={() => toggleGroup(g.id)}
-                          />
-                          <span>
-                            {g.label}
-                            <span className="broad-group-count"> ({count})</span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+        <>
+          <div className="accordion-block">
+            <button type="button" className="accordion-trigger" onClick={() => setYearOpen((o) => !o)} aria-expanded={yearOpen}>
+              <span className="accordion-chevron">{yearOpen ? "▾" : "▸"}</span>
+              Year range
+            </button>
+            {yearOpen && allYears.length > 1 && (
+              <div className="accordion-block__body">
+                <YearSlider
+                  dataMin={allYears[0]}
+                  dataMax={allYears[allYears.length - 1]}
+                  valueMin={filterYearMin ?? allYears[0]}
+                  valueMax={filterYearMax ?? allYears[allYears.length - 1]}
+                  onChangeMin={setFilterYearMin}
+                  onChangeMax={setFilterYearMax}
+                />
               </div>
+            )}
+          </div>
 
-              <div className="accordion-nested">
-                <button
-                  type="button"
-                  className="accordion-trigger accordion-trigger--nested"
-                  onClick={() => setSpeciesOpen((o) => !o)}
-                  aria-expanded={speciesOpen}
-                >
-                  <span className="accordion-chevron">{speciesOpen ? "▾" : "▸"}</span>
-                  Species (common name)
-                </button>
-                {speciesOpen && (
-                  <>
-                    <input
-                      className="filter-search"
-                      type="search"
-                      placeholder="Search common names…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <div className="species-scroller">
-                      {filteredNames.map((name) => (
-                        <label key={name} className="species-row">
-                          <input
-                            type="checkbox"
-                            checked={draftSelected.has(name)}
-                            onChange={() => toggleSpeciesName(name)}
-                          />
-                          {name}
-                        </label>
-                      ))}
+          <div className="accordion-block">
+            <button type="button" className="accordion-trigger" onClick={() => setFishOpen((o) => !o)} aria-expanded={fishOpen}>
+              <span className="accordion-chevron">{fishOpen ? "▾" : "▸"}</span>
+              Species filters
+            </button>
+            {fishOpen && (
+              <div className="accordion-block__body">
+                <div className="accordion-nested">
+                  <button
+                    type="button"
+                    className="accordion-trigger accordion-trigger--nested"
+                    onClick={() => setGroupsOpen((o) => !o)}
+                    aria-expanded={groupsOpen}
+                  >
+                    <span className="accordion-chevron">{groupsOpen ? "▾" : "▸"}</span>
+                    Broad groups
+                  </button>
+                  {groupsOpen && (
+                    <div className="broad-groups">
+                      {BROAD_GROUPS.map((g) => {
+                        const count = speciesInGroup(g.id, allCommonNames).length;
+                        if (count === 0) return null;
+                        const allOn = groupAllSelected(g.id);
+                        const some = groupSomeSelected(g.id);
+                        return (
+                          <label key={g.id} className="broad-group-row">
+                            <input
+                              type="checkbox"
+                              checked={allOn}
+                              ref={(el) => {
+                                if (el) el.indeterminate = some;
+                              }}
+                              onChange={() => toggleGroup(g.id)}
+                            />
+                            <span>
+                              {g.label}
+                              <span className="broad-group-count"> ({count})</span>
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
+
+                <div className="accordion-nested">
+                  <button
+                    type="button"
+                    className="accordion-trigger accordion-trigger--nested"
+                    onClick={() => setSpeciesOpen((o) => !o)}
+                    aria-expanded={speciesOpen}
+                  >
+                    <span className="accordion-chevron">{speciesOpen ? "▾" : "▸"}</span>
+                    Species (common name)
+                  </button>
+                  {speciesOpen && (
+                    <>
+                      <input
+                        className="filter-search"
+                        type="search"
+                        placeholder="Search common names…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                      <div className="species-scroller">
+                        {filteredNames.map((name) => (
+                          <label key={name} className="species-row">
+                            <input
+                              type="checkbox"
+                              checked={draftSelected.has(name)}
+                              onChange={() => toggleSpeciesName(name)}
+                            />
+                            {name}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+
+          <div className="filter-actions">
+            <motion.button
+              type="button"
+              className={`btn btn-apply ${dirty ? "btn-apply--dirty" : ""}`}
+              onClick={onApply}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Apply
+            </motion.button>
+          </div>
+        </>
       )}
 
       {isWater && (
@@ -208,20 +296,6 @@ export default function FilterPanel({
               {chemError && <p className="filter-water-error">{chemError}</p>}
             </div>
           )}
-        </div>
-      )}
-
-      {isFish && (
-        <div className="filter-actions">
-          <motion.button
-            type="button"
-            className={`btn btn-apply ${dirty ? "btn-apply--dirty" : ""}`}
-            onClick={onApply}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Apply
-          </motion.button>
         </div>
       )}
     </motion.aside>

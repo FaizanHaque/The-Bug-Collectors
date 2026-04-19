@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { parseCsv, rowYear } from "./utils/parseCsv.js";
-import { aggregateStations } from "./utils/aggregate.js";
 import { parseChemCsv } from "./utils/normalizeChem.js";
+import { buildLarvaePatches, larvaeValueRange } from "./utils/larvaeGrid.js";
 import WaveHeader from "./components/WaveHeader.jsx";
 import FishMap from "./components/FishMap.jsx";
 import FilterPanel from "./components/FilterPanel.jsx";
@@ -17,14 +17,27 @@ function uniqueCommonNames(rows) {
   return [...s].sort((a, b) => a.localeCompare(b));
 }
 
+function uniqueYears(rows) {
+  const s = new Set();
+  for (const r of rows) {
+    const y = rowYear(r.time);
+    if (y) s.add(y);
+  }
+  return [...s].sort((a, b) => a - b);
+}
+
 export default function Dashboard() {
-  const [rawRows, setRawRows] = useState([]);
-  const [fishError, setFishError] = useState(null);
-  const [fishLoading, setFishLoading] = useState(true);
+  const [larvaeRows, setLarvaeRows] = useState([]);
+  const [larvaeError, setLarvaeError] = useState(null);
+  const [larvaeLoading, setLarvaeLoading] = useState(true);
 
   const [draftSelected, setDraftSelected] = useState(() => new Set());
   const [appliedSelected, setAppliedSelected] = useState(() => new Set());
   const [search, setSearch] = useState("");
+
+  const [filterYearMin, setFilterYearMin] = useState(null);
+  const [filterYearMax, setFilterYearMax] = useState(null);
+
   const [mapKey, setMapKey] = useState(0);
 
   const [chemRows, setChemRows] = useState([]);
@@ -34,26 +47,31 @@ export default function Dashboard() {
   const [dataset, setDataset] = useState("fish");
 
   useEffect(() => {
-    const url = `${import.meta.env.BASE_URL}data/fish.csv`;
-    setFishLoading(true);
+    const url = `${import.meta.env.BASE_URL}data/larvae.csv`;
+    setLarvaeLoading(true);
     fetch(url)
       .then((r) => {
-        if (!r.ok) throw new Error(`Could not load fish.csv (${r.status}). Is public/data/fish.csv present?`);
+        if (!r.ok) throw new Error(`Could not load larvae.csv (${r.status}). Run dashboard/scripts/download_larvae.py first.`);
         return r.text();
       })
       .then((t) => {
         const rows = parseCsv(t);
-        setRawRows(rows);
-        setFishError(null);
+        setLarvaeRows(rows);
+        setLarvaeError(null);
         const names = uniqueCommonNames(rows);
         setDraftSelected(new Set(names));
         setAppliedSelected(new Set(names));
+        const years = uniqueYears(rows);
+        if (years.length) {
+          setFilterYearMin(years[0]);
+          setFilterYearMax(years[years.length - 1]);
+        }
       })
       .catch((e) => {
-        setFishError(String(e.message || e));
-        setRawRows([]);
+        setLarvaeError(String(e.message || e));
+        setLarvaeRows([]);
       })
-      .finally(() => setFishLoading(false));
+      .finally(() => setLarvaeLoading(false));
   }, []);
 
   useEffect(() => {
@@ -75,7 +93,8 @@ export default function Dashboard() {
       .finally(() => setChemLoading(false));
   }, []);
 
-  const allNames = useMemo(() => uniqueCommonNames(rawRows), [rawRows]);
+  const allNames = useMemo(() => uniqueCommonNames(larvaeRows), [larvaeRows]);
+  const allYears = useMemo(() => uniqueYears(larvaeRows), [larvaeRows]);
 
   const chemPhCount = useMemo(() => chemRows.filter((p) => p.ph != null).length, [chemRows]);
 
@@ -95,12 +114,24 @@ export default function Dashboard() {
 
   const filteredRows = useMemo(() => {
     if (appliedSelected.size === 0) return [];
-    if (appliedSelected.size === allNames.length) return rawRows;
-    const set = appliedSelected;
-    return rawRows.filter((r) => set.has((r.common_name || "").trim()));
-  }, [rawRows, appliedSelected, allNames.length]);
+    return larvaeRows.filter((r) => {
+      if (!appliedSelected.has((r.common_name || "").trim())) return false;
+      if (filterYearMin != null || filterYearMax != null) {
+        const y = rowYear(r.time);
+        if (y == null) return false;
+        if (filterYearMin != null && y < filterYearMin) return false;
+        if (filterYearMax != null && y > filterYearMax) return false;
+      }
+      return true;
+    });
+  }, [larvaeRows, appliedSelected, filterYearMin, filterYearMax]);
 
-  const stations = useMemo(() => aggregateStations(filteredRows), [filteredRows]);
+  const larvaePatches = useMemo(
+    () => (dataset === "fish" ? buildLarvaePatches(filteredRows) : []),
+    [dataset, filteredRows]
+  );
+
+  const larvaeRange = useMemo(() => larvaeValueRange(larvaePatches), [larvaePatches]);
 
   const onApply = useCallback(() => {
     setAppliedSelected(new Set(draftSelected));
@@ -116,37 +147,29 @@ export default function Dashboard() {
   }, []);
 
   const statusText = useMemo(() => {
-    if (fishLoading) return "Loading fish data…";
-    if (fishError) return `Fish data error: ${fishError}`;
+    if (larvaeLoading) return "Loading larvae data…";
+    if (larvaeError) return `Larvae data error: ${larvaeError}`;
     if (dataset === "water") {
       const layer = envOverlay === "ph" ? "pH patches" : "salinity patches";
       if (chemLoading) return "Loading CalCOFI…";
       if (chemError) return `CalCOFI · ${layer} · failed: ${chemError}`;
-      return `CalCOFI · ${layer} · ${chemRows.length} surface samples (${chemPhCount} with pH). Toggle to Fish larvae for the species map.`;
+      return `CalCOFI · ${layer} · ${chemRows.length} surface samples (${chemPhCount} with pH). Toggle to Fish larvae for the density grid.`;
     }
-    if (appliedSelected.size === 0) return "Select at least one species, then Apply.";
-    const years = new Set();
-    for (const r of filteredRows) {
-      const y = rowYear(r.time);
-      if (y) years.add(y);
-    }
-    const yStr = [...years].sort((a, b) => b - a).join(", ");
-    return `${filteredRows.length} rows · ${stations.length} stations · years: ${yStr || "—"}`;
+    return `${filteredRows.length.toLocaleString()} records · ${larvaePatches.length} grid cells`;
   }, [
-    fishLoading,
-    fishError,
+    larvaeLoading,
+    larvaeError,
     dataset,
     envOverlay,
     chemLoading,
     chemRows.length,
     chemPhCount,
     chemError,
-    filteredRows,
-    stations.length,
-    appliedSelected.size,
+    filteredRows.length,
+    larvaePatches.length,
   ]);
 
-  if (fishLoading) {
+  if (larvaeLoading) {
     return (
       <div className="app app--loading">
         <WaveHeader />
@@ -155,16 +178,16 @@ export default function Dashboard() {
     );
   }
 
-  if (fishError && rawRows.length === 0) {
+  if (larvaeError && larvaeRows.length === 0) {
     return (
       <div className="app app--loading">
         <WaveHeader />
         <div className="app-error-panel">
-          <h2>Could not load fish data</h2>
-          <p>{fishError}</p>
+          <h2>Could not load larvae data</h2>
+          <p>{larvaeError}</p>
           <p className="app-error-hint">
-            Ensure <code>dashboard/public/data/fish.csv</code> exists (copy from <code>data/fish.csv</code> in the repo root),
-            then run <code>npm run dev</code> from the <code>dashboard</code> folder.
+            Run <code>python3 dashboard/scripts/download_larvae.py</code> from the repo root to fetch and save the data,
+            then restart <code>npm run dev</code>.
           </p>
           <Link to="/test">Health check page</Link>
         </div>
@@ -192,14 +215,13 @@ export default function Dashboard() {
       >
         <div className="main-layout__map">
           <FishMap
-            stations={dataset === "fish" ? stations : []}
+            larvaePatches={dataset === "fish" ? larvaePatches : []}
+            larvaeRange={larvaeRange}
             mapKey={mapKey}
             envOverlay={dataset === "water" ? envOverlay : "none"}
             chemPoints={chemForMap}
           />
-          <p
-            className={`status-bar ${dataset === "fish" && appliedSelected.size === 0 ? "status-bar--error" : ""}`}
-          >
+          <p className={`status-bar ${dataset === "fish" && appliedSelected.size === 0 ? "status-bar--error" : ""}`}>
             {statusText}
           </p>
         </div>
@@ -211,6 +233,11 @@ export default function Dashboard() {
           dirty={dirty}
           search={search}
           setSearch={setSearch}
+          allYears={allYears}
+          filterYearMin={filterYearMin}
+          filterYearMax={filterYearMax}
+          setFilterYearMin={setFilterYearMin}
+          setFilterYearMax={setFilterYearMax}
           dataset={dataset}
           onDatasetChange={onDatasetChange}
           envOverlay={envOverlay}
@@ -231,15 +258,15 @@ export default function Dashboard() {
           <h3>CalCOFI water chemistry</h3>
           <p>
             Surface salinity and pH come from the CalCOFI bottle file (shallowest sample per station cast). Use the sidebar
-            toggle to switch between the fish map and the water-chemistry map—they are not shown together.
+            toggle to switch between the larvae density grid and the water-chemistry map.
           </p>
         </div>
         <div className="placeholder-card">
           <div className="shimmer" />
           <h3>Data notes</h3>
           <p>
-            pH fields in the public 1949–2021 bottle CSV are almost entirely empty; the dashboard still offers a pH overlay
-            for the few reported values. Salinity is measured as practical salinity (PSU).
+            Larvae data sourced from ERDDAP (erdCalCOFIlrvcnt), 1999–present, bounded to the Southern California Bight
+            (lat 32–35°N, lon 121–117°W). Grid patches show mean larvae per 10 m² per cell.
           </p>
         </div>
       </motion.footer>

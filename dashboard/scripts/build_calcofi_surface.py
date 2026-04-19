@@ -16,9 +16,9 @@ CAST_CSV = DATA / "194903-202105_Cast.csv"
 OUT = REPO / "dashboard/public/data/calcofi_surface.csv"
 ENC = "latin-1"
 
-# Geographic overlap with fish survey / Southern California Bight
-LAT0, LAT1 = 30.0, 38.5
-LON0, LON1 = -128.5, -116.5
+# Southern California Bight core study area
+LAT0, LAT1 = 32.0, 35.0
+LON0, LON1 = -121.0, -117.0
 YEAR_MIN = 2000  # keeps file size reasonable; raise to 2010 for fewer points
 
 
