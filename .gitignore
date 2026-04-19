@@ -3,3 +3,4 @@
 # To regenerate that file locally, download 194903-202105_Bottle.csv from CalCOFI
 # into data/ (alongside Cast) and run: python3 dashboard/scripts/build_calcofi_surface.py
 data/194903-202105_Bottle.csv
+.DS_Store
