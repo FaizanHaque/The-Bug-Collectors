@@ -1,5 +1,4 @@
 cruise,ship,ship_code,order_occupied,tow_type,tow_number,net_location,time,latitude,longitude,line,station,standard_haul_factor,volume_sampled,proportion_sorted,scientific_name,common_name,itis_tsn,calcofi_species_code,larvae_count,larvae_10m2,larvae_100m3
-,,,,,,,UTC,degrees_north,degrees_east,,,,meters^3,,,,,,,Larvae 10/M^2,Larvae 100/M^3
 202301,REUBEN LASKER,RL,44,CB,1,S,2023-01-18T10:41:00Z,32.65333,-121.02,86.7,70.0,4.27,467.3,0.48,Argyropelecus affinis,Slender hatchetfish,162216,103,1,8.895833,NaN
 202301,REUBEN LASKER,RL,44,CB,1,S,2023-01-18T10:41:00Z,32.65333,-121.02,86.7,70.0,4.27,467.3,0.48,Citharichthys sordidus,Pacific sanddab,172716,923,1,8.895833,NaN
 202301,REUBEN LASKER,RL,44,CB,1,S,2023-01-18T10:41:00Z,32.65333,-121.02,86.7,70.0,4.27,467.3,0.48,Citharichthys stigmaeus,Speckled sanddab,172717,925,1,8.895833,NaN
