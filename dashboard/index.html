@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fish larvae dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Dark background until React + CSS load (avoids a white flash). The dashboard UI is rendered into #root by main.jsx. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0a0f1a;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- This file is the Vite entry: run "npm run dev" in this folder and open the
+         localhost URL. Opening this file via File > Open (file://) will not load
+         /src/main.jsx — that path only works when the dev server is running. -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

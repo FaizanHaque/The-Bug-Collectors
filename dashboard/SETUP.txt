@@ -1,0 +1,42 @@
+Fish larvae dashboard — run instructions
+======================================
+
+1. Open a terminal in this folder (dashboard/).
+
+2. Install and start the dev server:
+   npm install
+   npm run dev
+
+3. In the browser, open the URL shown (usually http://localhost:5173/).
+
+4. Do NOT open index.html with File > Open — use the dev server or "npm run preview" after "npm run build".
+
+Why localhost works but double-clicking index.html does not
+-----------------------------------------------------------
+- The project root index.html is written for the Vite dev server. The script tag is
+  "/src/main.jsx". Only http://localhost:5173 (or similar) knows how to compile and
+  serve that path. If you open the file from disk, the browser uses the "file://" URL
+  scheme: there is no server, "/src/main.jsx" does not resolve to your project folder,
+  and the app never loads.
+- After "npm run build", dist/index.html points at bundled JS under ./assets/ — some
+  browsers may partially load that from file://, but ES modules, fetch() for CSV data,
+  and routing are unreliable on file://. Treat the built site as something you serve
+  over HTTP (npm run preview, or any static host), not as a file you double-click.
+- Simple static pages in public/ (e.g. blue-bar-test.html) are closer to "open as file"
+  behavior, but the main dashboard still expects to be served over HTTP like a real site.
+
+Quick tests if the screen is blank:
+- Static HTML (no React): http://localhost:5173/blue-bar-test.html — should show a blue bar.
+- React minimal: http://localhost:5173/#/blue — blue bar if the JS bundle works.
+- React health: http://localhost:5173/#/test
+
+Data files (must exist):
+- public/data/fish.csv          — copy from ../data/fish.csv in the repo when you update fish counts
+- public/data/calcofi_surface.csv — small derived file committed to the repo; the dashboard reads this at runtime.
+  Do NOT commit data/194903-202105_Bottle.csv (~160MB+; exceeds GitHub’s limit). To rebuild
+  calcofi_surface.csv yourself, download Bottle + keep data/194903-202105_Cast.csv, then run:
+  python3 dashboard/scripts/build_calcofi_surface.py
+
+Sidebar toggle: "Fish larvae" vs "CalCOFI water" (salinity or pH patches). Only one dataset on the map at a time.
+
+From repo root you can also run: npm run dev

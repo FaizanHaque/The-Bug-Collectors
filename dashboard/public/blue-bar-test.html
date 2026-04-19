@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blue bar — static test (no React)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background: #f1f5f9;
+        color: #0f172a;
+        padding: 2rem;
+      }
+      h1 {
+        font-size: 1.1rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        margin: 0 0 1rem;
+        max-width: 42rem;
+        line-height: 1.5;
+      }
+      .blue-bar {
+        height: 48px;
+        max-width: 480px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #2563eb, #1d4ed8);
+        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+      }
+      code {
+        background: #e2e8f0;
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Static blue bar test</h1>
+    <p>
+      If you see a <strong>blue horizontal bar</strong> below, the browser is loading this file correctly. This file does not use
+      React or Vite — it only checks that HTML/CSS work.
+    </p>
+    <p>Open while the dev server is running: <code>http://localhost:5173/blue-bar-test.html</code></p>
+    <div class="blue-bar" role="img" aria-label="Blue test bar"></div>
+  </body>
+</html>
