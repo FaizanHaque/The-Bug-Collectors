@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { NavLink } from "react-router-dom";
 
 export default function WaveHeader() {
   return (
@@ -21,7 +22,7 @@ export default function WaveHeader() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1, duration: 0.45 }}
         >
-          Fish larvae explorer
+          Ocean Data Explorer
         </motion.h1>
         <motion.p
           className="wave-header__subtitle"
@@ -29,8 +30,14 @@ export default function WaveHeader() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.22, duration: 0.4 }}
         >
-          California Current survey — pan & zoom the map, hover stations for species and year
+          Explore fish larvae, salinity, pH, and temperature through a yearly interactive timeline.
         </motion.p>
+        <nav className="wave-header__nav" aria-label="Top pages">
+          <NavLink to="/">Explorer</NavLink>
+          <NavLink to="/ocean-status">Whats Happening to Our Oceans</NavLink>
+          <NavLink to="/fish-importance">Why Fish Matter</NavLink>
+          <NavLink to="/what-we-can-do">What We Can Do</NavLink>
+        </nav>
       </motion.div>
     </header>
   );

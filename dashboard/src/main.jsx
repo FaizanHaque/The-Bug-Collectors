@@ -5,6 +5,9 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Dashboard from "./Dashboard.jsx";
 import TestPage from "./pages/TestPage.jsx";
 import BlueBarPage from "./pages/BlueBarPage.jsx";
+import OceanStatusPage from "./pages/OceanStatusPage.jsx";
+import FishImportancePage from "./pages/FishImportancePage.jsx";
+import WhatWeCanDoPage from "./pages/WhatWeCanDoPage.jsx";
 import "./index.css";
 import "leaflet/dist/leaflet.css";
 
@@ -22,6 +25,9 @@ if (!rootEl) {
             <Routes>
               <Route path="/blue" element={<BlueBarPage />} />
               <Route path="/test" element={<TestPage />} />
+              <Route path="/ocean-status" element={<OceanStatusPage />} />
+              <Route path="/fish-importance" element={<FishImportancePage />} />
+              <Route path="/what-we-can-do" element={<WhatWeCanDoPage />} />
               <Route path="/" element={<Dashboard />} />
             </Routes>
           </HashRouter>

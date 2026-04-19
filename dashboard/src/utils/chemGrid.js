@@ -9,6 +9,7 @@ export function buildChemPatches(points, mode, cellDeg = 0.38) {
   for (const p of points) {
     if (mode === "salinity" && !Number.isFinite(p.salinity)) continue;
     if (mode === "ph" && !Number.isFinite(p.ph)) continue;
+    if (mode === "temperature" && !Number.isFinite(p.temperature)) continue;
 
     const bi = Math.floor(p.lat / cellDeg);
     const bj = Math.floor(p.lon / cellDeg);
@@ -45,7 +46,7 @@ export function buildChemPatches(points, mode, cellDeg = 0.38) {
         n: pts.length,
         mode: "salinity",
       });
-    } else {
+    } else if (mode === "ph") {
       const vals = pts.map((p) => p.ph).filter(Number.isFinite);
       if (!vals.length) continue;
       const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -58,6 +59,20 @@ export function buildChemPatches(points, mode, cellDeg = 0.38) {
         yearLine,
         n: pts.length,
         mode: "ph",
+      });
+    } else if (mode === "temperature") {
+      const vals = pts.map((p) => p.temperature).filter(Number.isFinite);
+      if (!vals.length) continue;
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      patches.push({
+        south,
+        west,
+        north,
+        east,
+        value: mean,
+        yearLine,
+        n: pts.length,
+        mode: "temperature",
       });
     }
   }

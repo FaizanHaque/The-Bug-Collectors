@@ -16,7 +16,13 @@ export function buildLarvaePatches(rows, cellDeg = 0.2) {
     const bj = Math.floor(lon / cellDeg);
     const key = `${bi},${bj}`;
     if (!bins.has(key)) bins.set(key, []);
-    bins.get(key).push({ lat, lon, val, time: r.time });
+    bins.get(key).push({
+      lat,
+      lon,
+      val,
+      time: r.time,
+      common_name: (r.common_name || "").trim(),
+    });
   }
 
   const patches = [];
@@ -38,7 +44,17 @@ export function buildLarvaePatches(rows, cellDeg = 0.2) {
     const vals = pts.map((p) => p.val);
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
 
-    patches.push({ south, north, west, east, value: mean, yearLine, n: pts.length });
+    const nameCounts = new Map();
+    for (const p of pts) {
+      if (!p.common_name) continue;
+      nameCounts.set(p.common_name, (nameCounts.get(p.common_name) || 0) + 1);
+    }
+    const topSpecies = [...nameCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name]) => name);
+
+    patches.push({ south, north, west, east, value: mean, yearLine, n: pts.length, topSpecies });
   }
   return patches;
 }

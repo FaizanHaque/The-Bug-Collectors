@@ -17,3 +17,13 @@ export function colorPh(value, min, max) {
   const b = Math.round(200 - t * 120);
   return `rgb(${r},${g},${b})`;
 }
+
+/** Temperature (°C): cool cyan (low) -> warm red (high) */
+export function colorTemperature(value, min, max) {
+  const span = max - min || 1;
+  const t = Math.min(1, Math.max(0, (value - min) / span));
+  const r = Math.round(40 + t * 215);
+  const g = Math.round(170 - t * 130);
+  const b = Math.round(235 - t * 200);
+  return `rgb(${r},${g},${b})`;
+}

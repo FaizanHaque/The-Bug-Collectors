@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { parseCsv, rowYear } from "./utils/parseCsv.js";
 import { parseChemCsv } from "./utils/normalizeChem.js";
-import { buildLarvaePatches, larvaeValueRange } from "./utils/larvaeGrid.js";
+import { buildLarvaePatches } from "./utils/larvaeGrid.js";
 import WaveHeader from "./components/WaveHeader.jsx";
 import FishMap from "./components/FishMap.jsx";
 import FilterPanel from "./components/FilterPanel.jsx";
+import EnvTimelineChart from "./components/EnvTimelineChart.jsx";
+import LarvaeEnvScatterChart from "./components/LarvaeEnvScatterChart.jsx";
 import { motion } from "framer-motion";
 
 function uniqueCommonNames(rows) {
@@ -33,17 +35,17 @@ export default function Dashboard() {
 
   const [draftSelected, setDraftSelected] = useState(() => new Set());
   const [appliedSelected, setAppliedSelected] = useState(() => new Set());
-  const [search, setSearch] = useState("");
-
-  const [filterYearMin, setFilterYearMin] = useState(null);
-  const [filterYearMax, setFilterYearMax] = useState(null);
-
-  const [mapKey, setMapKey] = useState(0);
+  const [selectedYear, setSelectedYear] = useState(null);
 
   const [chemRows, setChemRows] = useState([]);
   const [chemError, setChemError] = useState(null);
   const [chemLoading, setChemLoading] = useState(true);
-  const [envOverlay, setEnvOverlay] = useState("salinity");
+  const [oceanVariable, setOceanVariable] = useState("salinity");
+
+  const [envRows, setEnvRows] = useState([]);
+  const [envError, setEnvError] = useState(null);
+  const [envLoading, setEnvLoading] = useState(true);
+
   const [dataset, setDataset] = useState("fish");
 
   useEffect(() => {
@@ -63,8 +65,7 @@ export default function Dashboard() {
         setAppliedSelected(new Set(names));
         const years = uniqueYears(rows);
         if (years.length) {
-          setFilterYearMin(years[0]);
-          setFilterYearMax(years[years.length - 1]);
+          setSelectedYear(years[0]);
         }
       })
       .catch((e) => {
@@ -79,7 +80,7 @@ export default function Dashboard() {
     setChemLoading(true);
     fetch(url)
       .then((r) => {
-        if (!r.ok) throw new Error(`Could not load CalCOFI file (${r.status})`);
+        if (!r.ok) throw new Error(`Could not load Ocean Data file (${r.status})`);
         return r.text();
       })
       .then((t) => {
@@ -93,16 +94,41 @@ export default function Dashboard() {
       .finally(() => setChemLoading(false));
   }, []);
 
+  useEffect(() => {
+    const url = `${import.meta.env.BASE_URL}data/larvae_env_yearly.csv`;
+    setEnvLoading(true);
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) {
+          throw new Error(`Could not load larvae_env_yearly.csv (${r.status}). Run dashboard/scripts/build_larvae_env_yearly.py.`);
+        }
+        return r.text();
+      })
+      .then((t) => {
+        const rows = parseCsv(t)
+          .map((r) => ({
+            year: parseInt(r.year, 10) || 0,
+            lat: parseFloat(r.lat),
+            lon: parseFloat(r.lon),
+            salinity: parseFloat(r.salinity_mean),
+            temperature: parseFloat(r.temperature_mean),
+            larvae10m2: parseFloat(r.larvae_10m2_mean),
+          }))
+          .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lon) && Number.isFinite(r.salinity) && Number.isFinite(r.temperature));
+        setEnvRows(rows);
+        setEnvError(null);
+      })
+      .catch((e) => {
+        setEnvError(String(e.message || e));
+        setEnvRows([]);
+      })
+      .finally(() => setEnvLoading(false));
+  }, []);
+
   const allNames = useMemo(() => uniqueCommonNames(larvaeRows), [larvaeRows]);
   const allYears = useMemo(() => uniqueYears(larvaeRows), [larvaeRows]);
 
   const chemPhCount = useMemo(() => chemRows.filter((p) => p.ph != null).length, [chemRows]);
-
-  const chemForMap = useMemo(() => {
-    if (dataset !== "water") return [];
-    if (envOverlay === "ph") return chemRows.filter((p) => p.ph != null);
-    return chemRows;
-  }, [dataset, chemRows, envOverlay]);
 
   const dirty = useMemo(() => {
     if (draftSelected.size !== appliedSelected.size) return true;
@@ -116,57 +142,121 @@ export default function Dashboard() {
     if (appliedSelected.size === 0) return [];
     return larvaeRows.filter((r) => {
       if (!appliedSelected.has((r.common_name || "").trim())) return false;
-      if (filterYearMin != null || filterYearMax != null) {
-        const y = rowYear(r.time);
-        if (y == null) return false;
-        if (filterYearMin != null && y < filterYearMin) return false;
-        if (filterYearMax != null && y > filterYearMax) return false;
-      }
+      const y = rowYear(r.time);
+      if (y == null) return false;
+      if (selectedYear != null && y !== selectedYear) return false;
       return true;
     });
-  }, [larvaeRows, appliedSelected, filterYearMin, filterYearMax]);
+  }, [larvaeRows, appliedSelected, selectedYear]);
 
-  const larvaePatches = useMemo(
-    () => (dataset === "fish" ? buildLarvaePatches(filteredRows) : []),
-    [dataset, filteredRows]
-  );
+  const oceanYears = useMemo(() => {
+    const years = new Set();
+    for (const row of chemRows) if (row.year) years.add(row.year);
+    return [...years].sort((a, b) => a - b);
+  }, [chemRows]);
 
-  const larvaeRange = useMemo(() => larvaeValueRange(larvaePatches), [larvaePatches]);
+  const envYears = useMemo(() => {
+    const years = new Set();
+    for (const row of envRows) if (row.year) years.add(row.year);
+    return [...years].sort((a, b) => a - b);
+  }, [envRows]);
 
-  const onApply = useCallback(() => {
-    setAppliedSelected(new Set(draftSelected));
-    setMapKey((k) => k + 1);
-  }, [draftSelected]);
+  useEffect(() => {
+    const years = dataset === "fish" ? allYears : dataset === "ocean" ? oceanYears : envYears;
+    if (!years.length) return;
+    setSelectedYear((prev) => (prev && years.includes(prev) ? prev : years[0]));
+  }, [dataset, allYears, oceanYears, envYears]);
 
-  const onDatasetChange = useCallback((next) => {
-    setDataset(next);
-    if (next === "water") {
-      setEnvOverlay((e) => (e === "none" ? "salinity" : e));
+  const filteredChemRows = useMemo(() => {
+    return chemRows.filter((r) => {
+      if (selectedYear != null && r.year !== selectedYear) return false;
+      return true;
+    });
+  }, [chemRows, selectedYear]);
+
+  const filteredEnvRows = useMemo(() => {
+    return envRows.filter((r) => {
+      if (selectedYear != null && r.year !== selectedYear) return false;
+      return true;
+    });
+  }, [envRows, selectedYear]);
+
+  const larvaePatches = useMemo(() => (dataset === "fish" ? buildLarvaePatches(filteredRows) : []), [dataset, filteredRows]);
+
+  const fullLarvaeRange = useMemo(() => ({ min: 1, max: 2660 }), []);
+
+  const fullOceanRanges = useMemo(() => {
+    const salVals = chemRows.map((r) => r.salinity).filter(Number.isFinite);
+    const phVals = chemRows.map((r) => r.ph).filter(Number.isFinite);
+    return {
+      salinity: salVals.length ? { min: Math.min(...salVals), max: Math.max(...salVals) } : { min: 0, max: 1 },
+      ph: phVals.length ? { min: Math.min(...phVals), max: Math.max(...phVals) } : { min: 7.7, max: 8.3 },
+    };
+  }, [chemRows]);
+
+  const fullEnvRanges = useMemo(() => {
+    const salVals = envRows.map((r) => r.salinity).filter(Number.isFinite);
+    const tempVals = envRows.map((r) => r.temperature).filter(Number.isFinite);
+    return {
+      salinity: salVals.length ? { min: Math.min(...salVals), max: Math.max(...salVals) } : { min: 30, max: 35 },
+      temperature: tempVals.length ? { min: Math.min(...tempVals), max: Math.max(...tempVals) } : { min: 10, max: 22 },
+    };
+  }, [envRows]);
+
+  const activePatchMode =
+    dataset === "fish" ? "none" : dataset === "ocean" ? oceanVariable : "salinity";
+
+  const activePoints = useMemo(() => {
+    if (dataset === "ocean") {
+      if (oceanVariable === "temperature") return filteredEnvRows;
+      return oceanVariable === "ph" ? filteredChemRows.filter((r) => r.ph != null) : filteredChemRows;
     }
-    setMapKey((k) => k + 1);
-  }, []);
+    if (dataset === "larvae_salinity") return filteredEnvRows;
+    return [];
+  }, [dataset, oceanVariable, filteredChemRows, filteredEnvRows]);
+
+  const activeRange =
+    dataset === "fish"
+      ? fullLarvaeRange
+      : dataset === "ocean"
+        ? oceanVariable === "temperature"
+          ? fullEnvRanges.temperature
+          : fullOceanRanges[oceanVariable]
+        : fullEnvRanges.salinity;
 
   const statusText = useMemo(() => {
     if (larvaeLoading) return "Loading larvae data…";
     if (larvaeError) return `Larvae data error: ${larvaeError}`;
-    if (dataset === "water") {
-      const layer = envOverlay === "ph" ? "pH patches" : "salinity patches";
-      if (chemLoading) return "Loading CalCOFI…";
-      if (chemError) return `CalCOFI · ${layer} · failed: ${chemError}`;
-      return `CalCOFI · ${layer} · ${chemRows.length} surface samples (${chemPhCount} with pH). Toggle to Fish larvae for the density grid.`;
+    if (dataset === "ocean") {
+      const layer =
+        oceanVariable === "ph" ? "pH patches" : oceanVariable === "temperature" ? "temperature patches" : "salinity patches";
+      if (oceanVariable === "temperature" && envLoading) return "Loading Ocean Data…";
+      if (chemLoading && oceanVariable !== "temperature") return "Loading Ocean Data…";
+      if (chemError) return `Ocean Data · ${layer} · failed: ${chemError}`;
+      if (envError && oceanVariable === "temperature") return `Ocean Data · ${layer} · failed: ${envError}`;
+      const n = oceanVariable === "temperature" ? filteredEnvRows.length : filteredChemRows.length;
+      return `Ocean Data · ${layer} · ${n} samples in selected year (${chemPhCount} with pH overall).`;
     }
-    return `${filteredRows.length.toLocaleString()} records · ${larvaePatches.length} grid cells`;
+    if (dataset === "larvae_salinity") {
+      if (envLoading) return "Loading larvae salinity dataset…";
+      if (envError) return `Larvae salinity error: ${envError}`;
+      return `Larvae salinity · ${filteredEnvRows.length} station-years · fixed gradient scale`;
+    }
+    return `${filteredRows.length.toLocaleString()} records · ${larvaePatches.length} grid cells · fixed gradient scale`;
   }, [
     larvaeLoading,
     larvaeError,
     dataset,
-    envOverlay,
+    oceanVariable,
     chemLoading,
-    chemRows.length,
     chemPhCount,
     chemError,
+    filteredChemRows.length,
     filteredRows.length,
     larvaePatches.length,
+    envLoading,
+    envError,
+    filteredEnvRows.length,
   ]);
 
   if (larvaeLoading) {
@@ -199,14 +289,6 @@ export default function Dashboard() {
     <div className="app">
       <WaveHeader />
 
-      <p className="dev-nav">
-        <Link to="/test">Health check</Link>
-        {" · "}
-        <Link to="/blue">React blue bar (#/blue)</Link>
-        {" · "}
-        <a href={`${import.meta.env.BASE_URL}blue-bar-test.html`}>Static blue bar (no React)</a>
-      </p>
-
       <motion.main
         className="main-layout"
         initial={{ opacity: 0 }}
@@ -215,61 +297,53 @@ export default function Dashboard() {
       >
         <div className="main-layout__map">
           <FishMap
-            larvaePatches={dataset === "fish" ? larvaePatches : []}
-            larvaeRange={larvaeRange}
-            mapKey={mapKey}
-            envOverlay={dataset === "water" ? envOverlay : "none"}
-            chemPoints={chemForMap}
+            larvaePatches={larvaePatches}
+            larvaeRange={fullLarvaeRange}
+            patchMode={activePatchMode}
+            points={activePoints}
+            valueRange={activeRange}
           />
           <p className={`status-bar ${dataset === "fish" && appliedSelected.size === 0 ? "status-bar--error" : ""}`}>
             {statusText}
           </p>
+          {dataset === "larvae_salinity" && (
+            <>
+              <EnvTimelineChart rows={envRows} metric="salinity" selectedYear={selectedYear} yDomain={fullEnvRanges.salinity} />
+              <LarvaeEnvScatterChart rows={envRows} />
+            </>
+          )}
+          {dataset === "ocean" && (
+            <EnvTimelineChart
+              rows={oceanVariable === "temperature" ? envRows : chemRows.map((r) => ({ ...r, larvae10m2: 0 }))}
+              metric={oceanVariable === "temperature" ? "temperature" : oceanVariable === "ph" ? "ph" : "salinity"}
+              selectedYear={selectedYear}
+              yDomain={
+                oceanVariable === "temperature"
+                  ? fullEnvRanges.temperature
+                  : oceanVariable === "ph"
+                    ? fullOceanRanges.ph
+                    : fullOceanRanges.salinity
+              }
+            />
+          )}
         </div>
         <FilterPanel
           allCommonNames={allNames}
           draftSelected={draftSelected}
           setDraftSelected={setDraftSelected}
-          onApply={onApply}
+          onApply={() => setAppliedSelected(new Set(draftSelected))}
           dirty={dirty}
-          search={search}
-          setSearch={setSearch}
-          allYears={allYears}
-          filterYearMin={filterYearMin}
-          filterYearMax={filterYearMax}
-          setFilterYearMin={setFilterYearMin}
-          setFilterYearMax={setFilterYearMax}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
           dataset={dataset}
-          onDatasetChange={onDatasetChange}
-          envOverlay={envOverlay}
-          setEnvOverlay={setEnvOverlay}
+          onDatasetChange={setDataset}
+          oceanVariable={oceanVariable}
+          setOceanVariable={setOceanVariable}
           chemError={chemError}
           chemPhCount={chemPhCount}
+          yearOptions={dataset === "fish" ? allYears : dataset === "ocean" ? (oceanVariable === "temperature" ? envYears : oceanYears) : envYears}
         />
       </motion.main>
-
-      <motion.footer
-        className="future-row"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.45 }}
-      >
-        <div className="placeholder-card">
-          <div className="shimmer" />
-          <h3>CalCOFI water chemistry</h3>
-          <p>
-            Surface salinity and pH come from the CalCOFI bottle file (shallowest sample per station cast). Use the sidebar
-            toggle to switch between the larvae density grid and the water-chemistry map.
-          </p>
-        </div>
-        <div className="placeholder-card">
-          <div className="shimmer" />
-          <h3>Data notes</h3>
-          <p>
-            Larvae data sourced from ERDDAP (erdCalCOFIlrvcnt), 1999–present, bounded to the Southern California Bight
-            (lat 32–35°N, lon 121–117°W). Grid patches show mean larvae per 10 m² per cell.
-          </p>
-        </div>
-      </motion.footer>
     </div>
   );
 }

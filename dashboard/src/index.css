@@ -151,6 +151,28 @@ body {
   max-width: 52ch;
 }
 
+.wave-header__nav {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.wave-header__nav a {
+  display: inline-block;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  text-decoration: none;
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.wave-header__nav a.active {
+  background: #0f766e;
+  color: #ecfeff;
+}
+
 /* ---- Main: map left, filters right ---- */
 .main-layout {
   display: grid;
@@ -252,6 +274,22 @@ body {
   border-radius: 8px !important;
 }
 
+.leaflet-tooltip.larvae-tooltip-shell {
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.45) !important;
+  border-radius: 8px !important;
+  min-width: 210px;
+  max-width: 230px;
+  white-space: normal !important;
+  padding: 8px 10px !important;
+}
+
+.larvae-tip {
+  line-height: 1.35;
+  font-size: 0.74rem;
+}
+
 .map-legend-card {
   position: absolute;
   left: 12px;
@@ -344,6 +382,37 @@ body {
   color: var(--danger);
 }
 
+.timeline-chart {
+  margin-top: 0.75rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.timeline-chart__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+}
+
+.timeline-chart__svg {
+  width: 100%;
+  height: 250px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.timeline-chart__svg--tall {
+  height: 340px;
+}
+
+.timeline-chart__note {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 /* ---- Filter rail (right) ---- */
 .filter-rail {
   border-left: 1px solid var(--panel-border);
@@ -384,6 +453,7 @@ body {
 
 .dataset-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 0.75rem;
   border-radius: 10px;
@@ -393,7 +463,7 @@ body {
 }
 
 .dataset-toggle__btn {
-  flex: 1;
+  flex: 1 1 50%;
   padding: 0.65rem 0.5rem;
   border: none;
   background: transparent;
@@ -576,6 +646,64 @@ body {
   font-weight: 600;
   color: var(--accent);
   margin-bottom: 0.6rem;
+}
+
+.year-slider-current {
+  color: #f8fafc;
+}
+
+.single-slider {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.single-slider__track {
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: var(--panel-border);
+  border-radius: 2px;
+}
+
+.single-slider__fill {
+  position: absolute;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.single-slider__input {
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  margin: 0;
+}
+
+.single-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  cursor: pointer;
+}
+
+.single-slider__input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  cursor: pointer;
 }
 
 .dual-slider {
@@ -886,4 +1014,54 @@ body {
 
 .dev-nav a:hover {
   text-decoration: underline;
+}
+
+.info-page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.info-page__content {
+  padding: 1.25rem 1rem 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.info-page__content h2 {
+  margin: 0 0 0.7rem;
+}
+
+.info-page__content h3 {
+  margin: 1rem 0 0.45rem;
+  font-size: 1.02rem;
+  color: #f8fafc;
+}
+
+.info-page__content p,
+.info-page__content li {
+  line-height: 1.55;
+  color: #d1d5db;
+}
+
+.info-page__sources {
+  margin-top: 1rem;
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.info-page__sources a {
+  color: #93c5fd;
+}
+
+.info-page__hero {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  margin: 0 0 0.95rem;
+}
+
+.info-page__hero--divers {
+  object-position: center 38%;
 }

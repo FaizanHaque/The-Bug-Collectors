@@ -4,10 +4,11 @@ export default function ChemLegend({ mode, minV, maxV }) {
   if (mode === "none") return null;
 
   const isPh = mode === "ph";
-  const low = isPh ? "rgb(200, 40, 200)" : "rgb(30, 80, 200)";
-  const high = isPh ? "rgb(200, 220, 80)" : "rgb(250, 250, 60)";
-  const unit = isPh ? "pH" : "PSU (practical salinity)";
-  const title = isPh ? "Surface pH (CalCOFI)" : "Surface salinity (CalCOFI)";
+  const isTemp = mode === "temperature";
+  const low = isPh ? "rgb(200, 40, 200)" : isTemp ? "rgb(40, 170, 235)" : "rgb(30, 80, 200)";
+  const high = isPh ? "rgb(200, 220, 80)" : isTemp ? "rgb(255, 40, 35)" : "rgb(250, 250, 60)";
+  const unit = isPh ? "pH" : isTemp ? "°C" : "PSU (practical salinity)";
+  const title = isPh ? "Surface pH (Ocean Data)" : isTemp ? "Surface temperature" : "Surface salinity";
 
   return (
     <motion.div
@@ -20,7 +21,7 @@ export default function ChemLegend({ mode, minV, maxV }) {
       <p className="chem-legend-card__subtitle">Grid patches · mean value per cell · hover shows year first, then reading</p>
       <div className="chem-legend-card__gradient" style={{ background: `linear-gradient(90deg, ${low}, ${high})` }} />
       <p className="chem-legend-card__range">
-        {minV.toFixed(isPh ? 2 : 2)} – {maxV.toFixed(isPh ? 2 : 2)} {unit}
+        {minV.toFixed(2)} – {maxV.toFixed(2)} {unit}
       </p>
       {isPh && (
         <p className="chem-legend-card__note">Sparse: pH is reported for very few bottle samples in this extract.</p>
