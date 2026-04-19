@@ -8,6 +8,7 @@ import FishMap from "./components/FishMap.jsx";
 import FilterPanel from "./components/FilterPanel.jsx";
 import EnvTimelineChart from "./components/EnvTimelineChart.jsx";
 import LarvaeEnvScatterChart from "./components/LarvaeEnvScatterChart.jsx";
+import CoveragePlotsPanel from "./components/CoveragePlotsPanel.jsx";
 import { motion } from "framer-motion";
 
 function uniqueCommonNames(rows) {
@@ -45,6 +46,10 @@ export default function Dashboard() {
   const [envRows, setEnvRows] = useState([]);
   const [envError, setEnvError] = useState(null);
   const [envLoading, setEnvLoading] = useState(true);
+  const [coverageRows, setCoverageRows] = useState([]);
+  const [coverageError, setCoverageError] = useState(null);
+  const [coverageLoading, setCoverageLoading] = useState(true);
+  const [coverageView, setCoverageView] = useState("2d");
 
   const [dataset, setDataset] = useState("fish");
 
@@ -73,6 +78,34 @@ export default function Dashboard() {
         setLarvaeRows([]);
       })
       .finally(() => setLarvaeLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const url = `${import.meta.env.BASE_URL}data/coverage_overlay.csv`;
+    setCoverageLoading(true);
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Could not load coverage_overlay.csv (${r.status})`);
+        return r.text();
+      })
+      .then((t) => {
+        const rows = parseCsv(t)
+          .map((r) => ({
+            year: parseInt(r.year, 10) || 0,
+            lat: parseFloat(r.lat),
+            lon: parseFloat(r.lon),
+            coverage: parseFloat(r.coverage),
+            source: (r.source || "").trim(),
+          }))
+          .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lon) && Number.isFinite(r.coverage));
+        setCoverageRows(rows);
+        setCoverageError(null);
+      })
+      .catch((e) => {
+        setCoverageError(String(e.message || e));
+        setCoverageRows([]);
+      })
+      .finally(() => setCoverageLoading(false));
   }, []);
 
   useEffect(() => {
@@ -161,11 +194,26 @@ export default function Dashboard() {
     return [...years].sort((a, b) => a - b);
   }, [envRows]);
 
+  const coverageYears = useMemo(() => {
+    const years = new Set();
+    for (const row of coverageRows) if (row.year) years.add(row.year);
+    return [...years].sort((a, b) => a - b);
+  }, [coverageRows]);
+
   useEffect(() => {
-    const years = dataset === "fish" ? allYears : dataset === "ocean" ? oceanYears : envYears;
+    const years =
+      dataset === "fish"
+        ? allYears
+        : dataset === "ocean"
+          ? oceanVariable === "temperature"
+            ? envYears
+            : oceanYears
+          : dataset === "coverage"
+            ? coverageYears
+            : envYears;
     if (!years.length) return;
     setSelectedYear((prev) => (prev && years.includes(prev) ? prev : years[0]));
-  }, [dataset, allYears, oceanYears, envYears]);
+  }, [dataset, allYears, oceanYears, envYears, coverageYears, oceanVariable]);
 
   const filteredChemRows = useMemo(() => {
     return chemRows.filter((r) => {
@@ -180,6 +228,13 @@ export default function Dashboard() {
       return true;
     });
   }, [envRows, selectedYear]);
+
+  const filteredCoverageRows = useMemo(() => {
+    return coverageRows.filter((r) => {
+      if (selectedYear != null && r.year !== selectedYear) return false;
+      return true;
+    });
+  }, [coverageRows, selectedYear]);
 
   const larvaePatches = useMemo(() => (dataset === "fish" ? buildLarvaePatches(filteredRows) : []), [dataset, filteredRows]);
 
@@ -203,17 +258,23 @@ export default function Dashboard() {
     };
   }, [envRows]);
 
+  const fullCoverageRange = useMemo(() => {
+    const vals = coverageRows.map((r) => r.coverage).filter(Number.isFinite);
+    return vals.length ? { min: Math.min(...vals), max: Math.max(...vals) } : { min: 0, max: 1 };
+  }, [coverageRows]);
+
   const activePatchMode =
-    dataset === "fish" ? "none" : dataset === "ocean" ? oceanVariable : "salinity";
+    dataset === "fish" ? "none" : dataset === "ocean" ? oceanVariable : dataset === "coverage" ? "coverage" : "salinity";
 
   const activePoints = useMemo(() => {
     if (dataset === "ocean") {
       if (oceanVariable === "temperature") return filteredEnvRows;
       return oceanVariable === "ph" ? filteredChemRows.filter((r) => r.ph != null) : filteredChemRows;
     }
+    if (dataset === "coverage") return filteredCoverageRows;
     if (dataset === "larvae_salinity") return filteredEnvRows;
     return [];
-  }, [dataset, oceanVariable, filteredChemRows, filteredEnvRows]);
+  }, [dataset, oceanVariable, filteredChemRows, filteredEnvRows, filteredCoverageRows]);
 
   const activeRange =
     dataset === "fish"
@@ -222,6 +283,8 @@ export default function Dashboard() {
         ? oceanVariable === "temperature"
           ? fullEnvRanges.temperature
           : fullOceanRanges[oceanVariable]
+        : dataset === "coverage"
+          ? fullCoverageRange
         : fullEnvRanges.salinity;
 
   const statusText = useMemo(() => {
@@ -236,6 +299,11 @@ export default function Dashboard() {
       if (envError && oceanVariable === "temperature") return `Ocean Data · ${layer} · failed: ${envError}`;
       const n = oceanVariable === "temperature" ? filteredEnvRows.length : filteredChemRows.length;
       return `Ocean Data · ${layer} · ${n} samples in selected year (${chemPhCount} with pH overall).`;
+    }
+    if (dataset === "coverage") {
+      if (coverageLoading) return "Loading coverage overlay…";
+      if (coverageError) return `Coverage data error: ${coverageError}`;
+      return `Coverage · ${filteredCoverageRows.length} stations in selected year · colored dots on map`;
     }
     if (dataset === "larvae_salinity") {
       if (envLoading) return "Loading larvae salinity dataset…";
@@ -257,6 +325,9 @@ export default function Dashboard() {
     envLoading,
     envError,
     filteredEnvRows.length,
+    coverageLoading,
+    coverageError,
+    filteredCoverageRows.length,
   ]);
 
   if (larvaeLoading) {
@@ -326,6 +397,11 @@ export default function Dashboard() {
               }
             />
           )}
+          {dataset === "coverage" && (
+            <>
+              {coverageView === "3d" && <CoveragePlotsPanel mode="3d" />}
+            </>
+          )}
         </div>
         <FilterPanel
           allCommonNames={allNames}
@@ -339,9 +415,21 @@ export default function Dashboard() {
           onDatasetChange={setDataset}
           oceanVariable={oceanVariable}
           setOceanVariable={setOceanVariable}
+          coverageView={coverageView}
+          setCoverageView={setCoverageView}
           chemError={chemError}
           chemPhCount={chemPhCount}
-          yearOptions={dataset === "fish" ? allYears : dataset === "ocean" ? (oceanVariable === "temperature" ? envYears : oceanYears) : envYears}
+          yearOptions={
+            dataset === "fish"
+              ? allYears
+              : dataset === "ocean"
+                ? oceanVariable === "temperature"
+                  ? envYears
+                  : oceanYears
+                : dataset === "coverage"
+                  ? coverageYears
+                  : envYears
+          }
         />
       </motion.main>
     </div>

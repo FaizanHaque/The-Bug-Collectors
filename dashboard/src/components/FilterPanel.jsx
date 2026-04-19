@@ -42,6 +42,8 @@ export default function FilterPanel({
   onDatasetChange,
   oceanVariable,
   setOceanVariable,
+  coverageView,
+  setCoverageView,
   chemError,
   chemPhCount,
 }) {
@@ -51,6 +53,7 @@ export default function FilterPanel({
 
   const isFish = dataset === "fish";
   const isOcean = dataset === "ocean";
+  const isCoverage = dataset === "coverage";
 
   const toggleGroup = (groupId) => {
     const names = speciesInGroup(groupId, allCommonNames);
@@ -115,24 +118,35 @@ export default function FilterPanel({
         >
           Ocean Data
         </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={isCoverage}
+          className={`dataset-toggle__btn ${isCoverage ? "dataset-toggle__btn--active" : ""}`}
+          onClick={() => onDatasetChange("coverage")}
+        >
+          Coverage
+        </button>
       </div>
 
-      <div className="accordion-block">
-        <button type="button" className="accordion-trigger" onClick={() => setYearOpen((o) => !o)} aria-expanded={yearOpen}>
-          <span className="accordion-chevron">{yearOpen ? "▾" : "▸"}</span>
-          Timeline year
-        </button>
-        {yearOpen && yearOptions.length > 1 && (
-          <div className="accordion-block__body">
-            <YearSlider
-              dataMin={yearOptions[0]}
-              dataMax={yearOptions[yearOptions.length - 1]}
-              value={selectedYear ?? yearOptions[0]}
-              onChange={setSelectedYear}
-            />
-          </div>
-        )}
-      </div>
+      {dataset !== "coverage" && (
+        <div className="accordion-block">
+          <button type="button" className="accordion-trigger" onClick={() => setYearOpen((o) => !o)} aria-expanded={yearOpen}>
+            <span className="accordion-chevron">{yearOpen ? "▾" : "▸"}</span>
+            Timeline year
+          </button>
+          {yearOpen && yearOptions.length > 1 && (
+            <div className="accordion-block__body">
+              <YearSlider
+                dataMin={yearOptions[0]}
+                dataMax={yearOptions[yearOptions.length - 1]}
+                value={selectedYear ?? yearOptions[0]}
+                onChange={setSelectedYear}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {isFish && (
         <>
@@ -213,6 +227,29 @@ export default function FilterPanel({
               {chemError && <p className="filter-water-error">{chemError}</p>}
             </div>
           )}
+        </div>
+      )}
+
+      {isCoverage && (
+        <div className="accordion-block">
+          <button type="button" className="accordion-trigger">
+            <span className="accordion-chevron">▾</span>
+            Coverage graph overlay
+          </button>
+          <div className="accordion-block__body">
+            <label className="filter-select-label" htmlFor="coverage-view">
+              Graph selection
+            </label>
+            <select
+              id="coverage-view"
+              className="filter-select"
+              value={coverageView}
+              onChange={(e) => setCoverageView(e.target.value)}
+            >
+              <option value="2d">Map: coverage data as colored dots</option>
+              <option value="3d">Show 3D coverage plot below map</option>
+            </select>
+          </div>
         </div>
       )}
     </motion.aside>

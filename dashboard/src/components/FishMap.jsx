@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import { motion } from "framer-motion";
-import { colorSalinity, colorPh, colorTemperature } from "../utils/chemColors.js";
+import { colorSalinity, colorPh, colorTemperature, colorCoverage } from "../utils/chemColors.js";
 import { buildChemPatches, patchValueRange } from "../utils/chemGrid.js";
 import { larvaeColor } from "../utils/larvaeColors.js";
 import MapLegend from "./MapLegend.jsx";
@@ -15,6 +15,13 @@ function patchTooltipHtml(patch) {
     return `<div class="chem-tip"><strong>Year</strong> ${patch.yearLine}<br/><strong>Temperature</strong> ${patch.value.toFixed(2)} °C</div>`;
   }
   return `<div class="chem-tip"><strong>Year</strong> ${patch.yearLine}<br/><strong>pH</strong> ${patch.value.toFixed(3)}</div>`;
+}
+
+function coverageDotTooltipHtml(p) {
+  const y = p.year > 0 ? String(p.year) : "—";
+  const src = (p.source || "").trim();
+  const srcLine = src ? `<br/><strong>Source</strong> ${src}` : "";
+  return `<div class="chem-tip"><strong>Year</strong> ${y}<br/><strong>Coverage index</strong> ${p.coverage.toFixed(2)}${srcLine}</div>`;
 }
 
 function larvaePatchTooltipHtml(patch) {
@@ -32,7 +39,10 @@ export default function FishMap({ larvaePatches, larvaeRange, patchMode, points,
   const layerRef = useRef(null);
   const chemLayerRef = useRef(null);
 
-  const patches = useMemo(() => buildChemPatches(points, patchMode, 0.38), [points, patchMode]);
+  const patches = useMemo(() => {
+    if (patchMode === "coverage") return [];
+    return buildChemPatches(points, patchMode, 0.38);
+  }, [points, patchMode]);
 
   const patchRange = useMemo(() => {
     if (patchMode === "none") return null;
@@ -98,9 +108,35 @@ export default function FishMap({ larvaePatches, larvaeRange, patchMode, points,
     if (!chemLayer) return;
 
     chemLayer.clearLayers();
-    if (patchMode === "none" || !patches.length || !patchRange) return;
+    if (patchMode === "none" || !patchRange) return;
 
     const { min: cmin, max: cmax } = patchRange;
+
+    if (patchMode === "coverage") {
+      if (!points?.length) return;
+      for (const p of points) {
+        if (!Number.isFinite(p.coverage)) continue;
+        const fill = colorCoverage(p.coverage, cmin, cmax);
+        const marker = L.circleMarker([p.lat, p.lon], {
+          radius: 7,
+          stroke: true,
+          color: "rgba(15, 23, 42, 0.55)",
+          weight: 1,
+          fillColor: fill,
+          fillOpacity: 0.88,
+        });
+        marker.bindTooltip(coverageDotTooltipHtml(p), {
+          sticky: true,
+          direction: "auto",
+          opacity: 1,
+          className: "chem-tooltip-shell",
+        });
+        chemLayer.addLayer(marker);
+      }
+      return;
+    }
+
+    if (!patches.length) return;
 
     for (const patch of patches) {
       const fill =
@@ -132,7 +168,7 @@ export default function FishMap({ larvaePatches, larvaeRange, patchMode, points,
 
       chemLayer.addLayer(rect);
     }
-  }, [patchMode, patches, patchRange]);
+  }, [patchMode, patches, patchRange, points]);
 
   // Keep viewport stable while dragging timeline (no auto fit on data updates).
 

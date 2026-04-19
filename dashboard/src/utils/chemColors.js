@@ -27,3 +27,13 @@ export function colorTemperature(value, min, max) {
   const b = Math.round(235 - t * 200);
   return `rgb(${r},${g},${b})`;
 }
+
+/** Coverage index: deep blue (low) -> warm yellow (high) */
+export function colorCoverage(value, min, max) {
+  const span = max - min || 1;
+  const t = Math.min(1, Math.max(0, (value - min) / span));
+  const r = Math.round(25 + t * 230);
+  const g = Math.round(70 + t * 180);
+  const b = Math.round(220 - t * 180);
+  return `rgb(${r},${g},${b})`;
+}

@@ -5,10 +5,11 @@ export default function ChemLegend({ mode, minV, maxV }) {
 
   const isPh = mode === "ph";
   const isTemp = mode === "temperature";
-  const low = isPh ? "rgb(200, 40, 200)" : isTemp ? "rgb(40, 170, 235)" : "rgb(30, 80, 200)";
-  const high = isPh ? "rgb(200, 220, 80)" : isTemp ? "rgb(255, 40, 35)" : "rgb(250, 250, 60)";
-  const unit = isPh ? "pH" : isTemp ? "°C" : "PSU (practical salinity)";
-  const title = isPh ? "Surface pH (Ocean Data)" : isTemp ? "Surface temperature" : "Surface salinity";
+  const isCoverage = mode === "coverage";
+  const low = isPh ? "rgb(200, 40, 200)" : isTemp ? "rgb(40, 170, 235)" : isCoverage ? "rgb(25, 70, 220)" : "rgb(30, 80, 200)";
+  const high = isPh ? "rgb(200, 220, 80)" : isTemp ? "rgb(255, 40, 35)" : isCoverage ? "rgb(255, 250, 40)" : "rgb(250, 250, 60)";
+  const unit = isPh ? "pH" : isTemp ? "°C" : isCoverage ? "coverage index" : "PSU (practical salinity)";
+  const title = isPh ? "Surface pH (Ocean Data)" : isTemp ? "Surface temperature" : isCoverage ? "Sampling coverage intensity" : "Surface salinity";
 
   return (
     <motion.div
@@ -18,7 +19,11 @@ export default function ChemLegend({ mode, minV, maxV }) {
       transition={{ duration: 0.3 }}
     >
       <div className="chem-legend-card__title">{title}</div>
-      <p className="chem-legend-card__subtitle">Grid patches · mean value per cell · hover shows year first, then reading</p>
+      <p className="chem-legend-card__subtitle">
+        {isCoverage
+          ? "Each dot is one station · color = coverage index · hover for year, value, and source"
+          : "Grid patches · mean value per cell · hover shows year first, then reading"}
+      </p>
       <div className="chem-legend-card__gradient" style={{ background: `linear-gradient(90deg, ${low}, ${high})` }} />
       <p className="chem-legend-card__range">
         {minV.toFixed(2)} – {maxV.toFixed(2)} {unit}
