@@ -1,35 +1,28 @@
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import { motion } from "framer-motion";
-import { buildStationTooltipHtml } from "../utils/aggregate.js";
 import { colorSalinity, colorPh } from "../utils/chemColors.js";
 import { buildChemPatches, patchValueRange } from "../utils/chemGrid.js";
+import { larvaeColor } from "../utils/larvaeColors.js";
 import MapLegend from "./MapLegend.jsx";
 import ChemLegend from "./ChemLegend.jsx";
 
-function ylOrRd(t) {
-  const r = 255;
-  const g = Math.round(255 - t * 200);
-  const b = Math.round(100 - t * 100);
-  return `rgb(${r},${g},${b})`;
-}
-
-function patchTooltipHtml(patch) {
+function chemPatchTooltipHtml(patch) {
   if (patch.mode === "salinity") {
     return `<div class="chem-tip"><strong>Year</strong> ${patch.yearLine}<br/><strong>Salinity</strong> ${patch.value.toFixed(2)} PSU</div>`;
   }
   return `<div class="chem-tip"><strong>Year</strong> ${patch.yearLine}<br/><strong>pH</strong> ${patch.value.toFixed(3)}</div>`;
 }
 
-export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
+function larvaePatchTooltipHtml(patch) {
+  return `<div class="chem-tip"><strong>Year</strong> ${patch.yearLine}<br/><strong>Mean larvae</strong> ${patch.value.toFixed(2)} / 10m²<br/><strong>Samples</strong> ${patch.n}</div>`;
+}
+
+export default function FishMap({ larvaePatches, larvaeRange, mapKey, envOverlay, chemPoints }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layerRef = useRef(null);
   const chemLayerRef = useRef(null);
-
-  const totals = stations.length ? stations.map((s) => s.totalLarvae) : [0, 1];
-  const minT = Math.min(...totals);
-  const maxT = Math.max(...totals);
 
   const chemPatches = useMemo(() => buildChemPatches(chemPoints, envOverlay, 0.38), [chemPoints, envOverlay]);
 
@@ -40,7 +33,7 @@ export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
-    const map = L.map(mapRef.current, { scrollWheelZoom: true }).setView([33.5, -122.5], 6);
+    const map = L.map(mapRef.current, { scrollWheelZoom: true }).setView([33.5, -119.0], 7);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap",
       maxZoom: 18,
@@ -60,39 +53,36 @@ export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
   }, []);
 
   useEffect(() => {
-    const map = mapInstanceRef.current;
     const layer = layerRef.current;
-    if (!map || !layer) return;
+    if (!layer) return;
 
     layer.clearLayers();
+    if (!larvaePatches?.length || !larvaeRange) return;
 
-    const span = maxT - minT || 1;
+    const { min: lmin, max: lmax } = larvaeRange;
 
-    for (const st of stations) {
-      const t = (st.totalLarvae - minT) / span;
-      const fill = ylOrRd(t);
-      const r = Math.min(32, 5 + Math.sqrt(st.totalLarvae) * 1.35);
-
-      const circle = L.circleMarker([st.lat, st.lng], {
-        radius: r,
-        color: "#0f172a",
-        weight: 1.5,
+    for (const patch of larvaePatches) {
+      const fill = larvaeColor(patch.value, lmin, lmax);
+      const bounds = [
+        [patch.south, patch.west],
+        [patch.north, patch.east],
+      ];
+      const rect = L.rectangle(bounds, {
+        stroke: true,
+        color: "rgba(15, 23, 42, 0.45)",
+        weight: 0.75,
         fillColor: fill,
-        fillOpacity: 0.88,
+        fillOpacity: 0.65,
       });
-
-      const html = buildStationTooltipHtml(st);
-      circle.bindTooltip(html, {
+      rect.bindTooltip(larvaePatchTooltipHtml(patch), {
         sticky: true,
-        direction: "top",
+        direction: "auto",
         opacity: 1,
-        maxWidth: 560,
-        className: "station-tooltip-shell",
+        className: "chem-tooltip-shell",
       });
-
-      layer.addLayer(circle);
+      layer.addLayer(rect);
     }
-  }, [stations, mapKey, minT, maxT]);
+  }, [larvaePatches, larvaeRange, mapKey]);
 
   useEffect(() => {
     const chemLayer = chemLayerRef.current;
@@ -122,7 +112,7 @@ export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
         fillOpacity: 0.52,
       });
 
-      rect.bindTooltip(patchTooltipHtml(patch), {
+      rect.bindTooltip(chemPatchTooltipHtml(patch), {
         sticky: true,
         direction: "auto",
         opacity: 1,
@@ -149,7 +139,7 @@ export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
     if (b?.isValid()) {
       map.fitBounds(b.pad(0.12));
     }
-  }, [stations, mapKey, envOverlay, chemPatches]);
+  }, [larvaePatches, mapKey, envOverlay, chemPatches]);
 
   return (
     <motion.div
@@ -161,7 +151,9 @@ export default function FishMap({ stations, mapKey, envOverlay, chemPoints }) {
     >
       <div className="map-shell">
         <div ref={mapRef} className="fish-map" />
-        {stations.length > 0 && <MapLegend minTotal={minT} maxTotal={maxT} />}
+        {larvaePatches?.length > 0 && larvaeRange && (
+          <MapLegend minV={larvaeRange.min} maxV={larvaeRange.max} />
+        )}
         {envOverlay !== "none" && chemRange && (
           <ChemLegend mode={envOverlay} minV={chemRange.min} maxV={chemRange.max} />
         )}
